@@ -17,13 +17,13 @@ the speckle/polka-dot grain the stock Wan decoder is known for.
 Extensions → Install from URL:
 
 ```text
-https://github.com/abzaloff/Neo-VAE-Utils
+https://github.com/aoleg/Neo-VAE-Utils
 ```
 
 Or clone into your Forge Neo `extensions` directory and restart:
 
 ```bash
-git clone https://github.com/abzaloff/Neo-VAE-Utils
+git clone https://github.com/aoleg/Neo-VAE-Utils
 ```
 
 No extra dependencies.
