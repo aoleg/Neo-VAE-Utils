@@ -53,7 +53,23 @@ class NeoVAEUtils(scripts.Script):
 
             with gr.Row():
                 mode = gr.Radio(value=MODE_NORMAL, choices=(MODE_NORMAL, MODE_UPSCALE), label="Output", info="whether to keep the decoder's extra resolution")
-                downscale_filter = gr.Dropdown(value="area", choices=upscale_vae.DOWNSCALE_FILTERS, label="Downscale filter", info="only used when downscaling")
+                downscale_filter = gr.Dropdown(
+                    value=upscale_vae.DOWNSCALE_FILTERS[0],
+                    choices=upscale_vae.DOWNSCALE_FILTERS,
+                    label="Downscale filter",
+                    info="gaussian/bilinear are cleanest; lanczos is sharpest but rings",
+                )
+
+            with gr.Row():
+                gaussian_sigma = gr.Slider(
+                    value=upscale_vae.GAUSSIAN_SIGMA,
+                    minimum=0.3,
+                    maximum=0.8,
+                    step=0.05,
+                    label="Gaussian blur",
+                    info="higher = smoother, less grain (gaussian filter only)",
+                )
+                linear_light = gr.Checkbox(value=False, label="Downscale in linear light", info="average photons rather than sRGB values")
 
             gr.Markdown(
                 "Replaces the decoder for models that use the Wan 2.1 latent space "
@@ -71,9 +87,11 @@ class NeoVAEUtils(scripts.Script):
             (vae_name, "vae_utils_vae"),
             (mode, "vae_utils_mode"),
             (downscale_filter, "vae_utils_filter"),
+            (gaussian_sigma, "vae_utils_sigma"),
+            (linear_light, "vae_utils_linear"),
         ]
 
-        return enabled, vae_name, mode, downscale_filter
+        return enabled, vae_name, mode, downscale_filter, gaussian_sigma, linear_light
 
     @torch.inference_mode()
     def process_before_every_sampling(
@@ -83,6 +101,8 @@ class NeoVAEUtils(scripts.Script):
         vae_name: str,
         mode: str,
         downscale_filter: str,
+        gaussian_sigma: float,
+        linear_light: bool,
         **kwargs,
     ):
         """Swap in the upscaling decoder.
@@ -129,14 +149,17 @@ class NeoVAEUtils(scripts.Script):
             logger.warning("VAE Utils: inpainting requires a normally sized image; downscaling instead")
             downscale = vae.upscale_factor
 
-        vae.configure(source, downscale, downscale_filter, sd_model.model_config.latent_format)
+        vae.configure(source, downscale, downscale_filter, sd_model.model_config.latent_format, gaussian_sigma, linear_light)
         sd_model.forge_objects.vae = vae
 
+        downscaling = downscale > 1
         p.extra_generation_params.update(
             {
                 "vae_utils_vae": vae_name,
                 "vae_utils_mode": MODE_UPSCALE if downscale == 1 else MODE_NORMAL,
-                "vae_utils_filter": vae.downscale_filter if downscale > 1 else None,
+                "vae_utils_filter": vae.downscale_filter if downscaling else None,
+                "vae_utils_sigma": f"{vae.gaussian_sigma:g}" if downscaling and vae.downscale_filter == "gaussian" else None,
+                "vae_utils_linear": True if downscaling and vae.linear_light else None,
                 "vae_utils_scale": f"{vae.output_scale:g}x" if vae.output_scale != 1 else None,
             }
         )

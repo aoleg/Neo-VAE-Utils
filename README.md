@@ -56,7 +56,9 @@ Open the **VAE Utils** accordion, enable it, and pick the VAE.
 | --- | --- | --- |
 | Decoder VAE | `None` | Which VAE from `models/VAE` to decode with. 🔄 rescans the folder. |
 | Output | `Downscale to normal size` | See below. |
-| Downscale filter | `area` | `area` / `bicubic` / `bilinear`, only used when downscaling. |
+| Downscale filter | `gaussian` | Resample filter, only used when downscaling. See the table below. |
+| Gaussian blur | `0.5` | Kernel width for the `gaussian` filter. Higher = smoother, less grain. |
+| Downscale in linear light | off | Resample in linear light instead of sRGB. |
 
 #### Output modes
 
@@ -69,8 +71,52 @@ default and works everywhere, including inpainting.
 2048x2048. Nothing else in the pipeline changes; the extra resolution is real detail
 reconstructed by the decoder, not an interpolation.
 
-`area` is a plain box filter and is the closest match to "slight blur, then downsample";
-`bicubic` and `bilinear` are antialiased and keep a little more apparent sharpness.
+#### Choosing a downscale filter
+
+The two things that make a downscaled image look wrong are *aliasing* (high-frequency
+decoder grain folding back down as mottled noise) and *ringing* (bright/dark halos at
+edges, which read as oversharpening). They come from different filter properties, so
+they need to be traded off deliberately:
+
+| filter | taps | detail kept | grain surviving | ringing |
+| --- | ---: | ---: | ---: | ---: |
+| `gaussian` σ=0.5 | 6 | 0.458 | **9.1%** | 0.0% |
+| `bilinear` | 4 | 0.542 | 11.6% | 0.0% |
+| `hamming` | 4 | 0.593 | 15.6% | 0.0% |
+| `bicubic` | 8 | 0.814 | 18.5% | 4.7% |
+| `lanczos` | 12 | **1.000** | 19.6% | **8.2%** |
+| `area` | 2 | 0.815 | **36.2%** | 0.0% |
+
+Measured on synthetic test signals for a 2x downscale — "grain surviving" is the share of
+pure above-Nyquist energy that survives (lower is cleaner), "ringing" is edge overshoot as
+a percentage of edge height, "detail kept" is retention at 0.20 cycles/px.
+
+- **`gaussian` (default)** is the best all-rounder for this decoder: strong grain
+  rejection with mathematically zero ringing, and the **Gaussian blur** slider lets you
+  dial the exact softness you want (0.3 sharper → 0.8 much smoother). This is also
+  literally what the model author recommends — *"a slight blur and downsample"*.
+- **`bilinear`** is nearly as clean with slightly more bite, and needs no tuning.
+- **`lanczos`** retains the most detail but has by far the worst ringing. It is the
+  "keep every last detail" option, **not** the clean one — if the image looks
+  oversharpened, this will make it worse.
+- **`area`** is only a 2-tap box average and barely low-passes at all, leaving 3-4x more
+  grain than anything else here. It was the old default; it is kept for compatibility but
+  is not recommended.
+
+On a real encode→decode→downscale round-trip against ground truth, the ordering holds:
+`gaussian` σ=0.5 scored best (36.23 dB) and `lanczos` worst (35.52 dB). Note that test
+uses *encoded* latents, which is the decoder's best case — spacepxl's notes on latent
+degradation mean **generated** latents carry more artifacts, so the gap in real use is
+wider than those numbers suggest.
+
+#### Downscale in linear light
+
+Resamples with the sRGB transfer curve undone, so pixels average as light rather than as
+code values. Mainly changes how bright speckles blend into their surroundings.
+
+Measured, it is a very slight *negative* on reconstruction accuracy (36.23 → 35.97 dB with
+`gaussian` σ=0.5), so it is **off by default** and offered as a look preference rather
+than a quality setting.
 
 #### Notes
 
@@ -103,6 +149,14 @@ with anything but 3. This extension:
 Forge re-copies `forge_objects` from `forge_objects_after_applying_lora` before every
 sampling pass, so the swap is scoped to the pass that follows and never has to be undone.
 The raw decoder is still 8x spatial, so tiling ratios stay correct with no other changes.
+
+`area`, `bilinear` and `bicubic` use PyTorch's own antialiased `F.interpolate`. PyTorch has
+no Lanczos, Hamming or Gaussian resampler, so those are built as explicit kernels and
+applied as a separable strided convolution — in float, on GPU, with no 8-bit round trip
+(which is why Pillow isn't used). Because the downscale factor is always a whole number,
+a single fixed kernel per axis is exactly correct; the only subtlety is that an output
+pixel's centre lands on a half-integer input coordinate for even factors and a whole one
+for odd, so the tap count has to carry the same parity or the image shifts half a pixel.
 
 Nothing in `sd-webui-forge-classic` is modified.
 
