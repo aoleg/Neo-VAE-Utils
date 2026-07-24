@@ -39,6 +39,7 @@ public class VAEUtilsExtension : Extension
         base.PopulateMetadata();
         Description = "Adds support for upscaling VAE Wan2.1-VAE-upscale2x";
         Tags = ["parameters", "nodes"];
+        License = "MIT";
     }
 
     public override void OnInit()
