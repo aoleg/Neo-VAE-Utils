@@ -37,22 +37,26 @@ TOPOLOGY = {
     "dropout": 0.0,
 }
 
-#   Ordered worst-to-best at rejecting the decoder's high-frequency grain, which is
-#   what reads as "noise" in the downscaled image.  Measured share of pure
-#   above-Nyquist grain surviving a 2x downscale, and edge overshoot ("ringing",
-#   which reads as an oversharpened halo):
+#   Listed cleanest-first.  Measured share of the decoder's pure above-Nyquist grain
+#   surviving a 2x downscale - that grain folding back down is what reads as "noise" -
+#   alongside edge overshoot ("ringing", which reads as an oversharpened halo):
 #
-#       area      36.2% grain   0.0% ring   <- only a 2-tap box, barely low-passes
-#       lanczos   19.6% grain   8.2% ring   <- sharpest, but rings the most
-#       bicubic   18.5% grain   4.7% ring
-#       hamming   15.6% grain   0.0% ring
-#       bilinear  11.6% grain   0.0% ring
 #       gaussian   9.1% grain   0.0% ring   <- at the default sigma of 0.5
+#       bilinear  11.6% grain   0.0% ring   <- DEFAULT_FILTER
+#       hamming   15.6% grain   0.0% ring
+#       area      36.2% grain   0.0% ring   <- only a 2-tap box, barely low-passes
+#       bicubic   18.5% grain   4.7% ring
+#       lanczos   19.6% grain   8.2% ring   <- sharpest, but rings the most
 #
 #   Ringing only comes from kernels with negative lobes (bicubic, lanczos), so the
 #   "clean and smooth" options are the ones with neither problem: gaussian, then
 #   bilinear.  lanczos is the "keep every last detail" choice, not the clean one.
 DOWNSCALE_FILTERS = ("gaussian", "bilinear", "hamming", "area", "bicubic", "lanczos")
+
+#   bilinear over the slightly-cleaner gaussian because it needs no tuning to look
+#   right, and side-by-side it reads as the best balance of clean vs crisp.  Kept
+#   separate from the tuple order so the dropdown can stay sorted by cleanliness.
+DEFAULT_FILTER = "bilinear"
 
 #   torch resamples these three natively, with correct antialiasing on the way down
 _NATIVE_FILTERS = frozenset({"area", "bilinear", "bicubic"})
@@ -187,7 +191,7 @@ class UpscaleDecodeVAE(VAE):
         self.upscale_factor = int(factor)
         self.output_channels = 3 * self.upscale_factor**2  # what the decoder really emits
         self.downscale = 1
-        self.downscale_filter = DOWNSCALE_FILTERS[0]
+        self.downscale_filter = DEFAULT_FILTER
         self.gaussian_sigma = GAUSSIAN_SIGMA
         self.linear_light = False
         self.source: VAE = None
@@ -207,7 +211,7 @@ class UpscaleDecodeVAE(VAE):
         """Rebind to the currently loaded checkpoint and the current UI settings."""
         self.source = source
         self.downscale = int(downscale)
-        self.downscale_filter = downscale_filter if downscale_filter in DOWNSCALE_FILTERS else DOWNSCALE_FILTERS[0]
+        self.downscale_filter = downscale_filter if downscale_filter in DOWNSCALE_FILTERS else DEFAULT_FILTER
         self.gaussian_sigma = float(gaussian_sigma)
         self.linear_light = bool(linear_light)
         self.first_stage_model.latent_format = latent_format

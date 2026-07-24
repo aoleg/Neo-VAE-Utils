@@ -54,10 +54,10 @@ class NeoVAEUtils(scripts.Script):
             with gr.Row():
                 mode = gr.Radio(value=MODE_NORMAL, choices=(MODE_NORMAL, MODE_UPSCALE), label="Output", info="whether to keep the decoder's extra resolution")
                 downscale_filter = gr.Dropdown(
-                    value=upscale_vae.DOWNSCALE_FILTERS[0],
+                    value=upscale_vae.DEFAULT_FILTER,
                     choices=upscale_vae.DOWNSCALE_FILTERS,
                     label="Downscale filter",
-                    info="gaussian/bilinear are cleanest; lanczos is sharpest but rings",
+                    info="bilinear is balanced, gaussian cleanest, lanczos sharpest",
                 )
 
             with gr.Row():

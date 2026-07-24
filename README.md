@@ -56,7 +56,7 @@ Open the **VAE Utils** accordion, enable it, and pick the VAE.
 | --- | --- | --- |
 | Decoder VAE | `None` | Which VAE from `models/VAE` to decode with. 🔄 rescans the folder. |
 | Output | `Downscale to normal size` | See below. |
-| Downscale filter | `gaussian` | Resample filter, only used when downscaling. See the table below. |
+| Downscale filter | `bilinear` | Resample filter, only used when downscaling. See the table below. |
 | Gaussian blur | `0.5` | Kernel width for the `gaussian` filter. Higher = smoother, less grain. |
 | Downscale in linear light | off | Resample in linear light instead of sRGB. |
 
@@ -81,7 +81,7 @@ they need to be traded off deliberately:
 | filter | taps | detail kept | grain surviving | ringing |
 | --- | ---: | ---: | ---: | ---: |
 | `gaussian` σ=0.5 | 6 | 0.458 | **9.1%** | 0.0% |
-| `bilinear` | 4 | 0.542 | 11.6% | 0.0% |
+| `bilinear` *(default)* | 4 | 0.542 | 11.6% | 0.0% |
 | `hamming` | 4 | 0.593 | 15.6% | 0.0% |
 | `bicubic` | 8 | 0.814 | 18.5% | 4.7% |
 | `lanczos` | 12 | **1.000** | 19.6% | **8.2%** |
@@ -91,11 +91,15 @@ Measured on synthetic test signals for a 2x downscale — "grain surviving" is t
 pure above-Nyquist energy that survives (lower is cleaner), "ringing" is edge overshoot as
 a percentage of edge height, "detail kept" is retention at 0.20 cycles/px.
 
-- **`gaussian` (default)** is the best all-rounder for this decoder: strong grain
-  rejection with mathematically zero ringing, and the **Gaussian blur** slider lets you
-  dial the exact softness you want (0.3 sharper → 0.8 much smoother). This is also
+- **`bilinear` (default)** is the best balance in side-by-side use: essentially as clean
+  as `gaussian`, a little crisper, and it needs no tuning.
+- **`gaussian`** rejects the most grain with mathematically zero ringing, and the
+  **Gaussian blur** slider lets you dial the exact softness you want. This is also
   literally what the model author recommends — *"a slight blur and downsample"*.
-- **`bilinear`** is nearly as clean with slightly more bite, and needs no tuning.
+  In practice **0.3–0.5 are hard to tell apart, 0.6 is subtle but visible, and 0.8 is
+  noticeably soft** — so treat ~0.6 as the first setting worth reaching for if the
+  default still looks too crisp.
+- **`hamming`** sits between `bilinear` and `bicubic`; no ringing, a touch more bite.
 - **`lanczos`** retains the most detail but has by far the worst ringing. It is the
   "keep every last detail" option, **not** the clean one — if the image looks
   oversharpened, this will make it worse.
