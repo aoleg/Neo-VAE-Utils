@@ -47,7 +47,12 @@ public class VAEUtilsExtension : Extension
             GetValues: (_) => ["downscale///Downscale to normal size", "upscale///Upscale"]
             ));
         DownscaleFilter = T2IParamTypes.Register<string>(new("[VAE Utils] Downscale Filter", "[VAE Utils]\nResample filter used when downscaling. 'area' is plain box-filter averaging and gives the most denoising - recommended. 'bicubic' and 'bilinear' keep a bit more apparent sharpness at the cost of some of that denoising.\nOnly used when Output is 'Downscale to normal size'.",
-            "area", Group: VAEUtilsGroup, FeatureFlag: FeatureId, OrderPriority: 3, DependNonDefault: Mode.Type.ID,
+            // NOTE: no DependNonDefault here - that flag means "visible when the referenced
+            // param is NOT at its default", which for a value-based dropdown like Mode
+            // (default "downscale") would show this only in "upscale" mode, backwards from
+            // intent. Swarm's param system has no "depends on this exact value" mechanism,
+            // so this just stays always-visible, same as the Forge Neo side of this repo.
+            "area", Group: VAEUtilsGroup, FeatureFlag: FeatureId, OrderPriority: 3,
             GetValues: (_) => ["area", "bicubic", "bilinear"]
             ));
 
