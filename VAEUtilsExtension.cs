@@ -30,6 +30,17 @@ public class VAEUtilsExtension : Extension
     /// <summary>Pixel-shuffle upscale factor per VAE file path, read from the checkpoint's own decoder head shape (eg 12-channel head -&gt; 2x). Cheap to read but no reason to reread it every generation.</summary>
     static readonly ConcurrentDictionary<string, int> UpscaleFactorCache = new();
 
+    /// <summary>The default implementation only fills in Description/Tags/Author/License when this repo's URL
+    /// is found in Swarm's official known-extensions list, which this isn't (yet) on - so those fields would
+    /// otherwise stay at their bare defaults on the Installed Extensions page. Base call still gets Version and
+    /// CanUpdate populated via git as normal.</summary>
+    public override void PopulateMetadata()
+    {
+        base.PopulateMetadata();
+        Description = "Adds support for upscaling VAE Wan2.1-VAE-upscale2x";
+        Tags = ["parameters", "nodes"];
+    }
+
     public override void OnInit()
     {
         InstallableFeatures.RegisterInstallableFeature(new("VAE Utils", FeatureId, "https://github.com/spacepxl/ComfyUI-VAE-Utils", "spacepxl", "This will install the ComfyUI-VAE-Utils node pack by spacepxl (MIT License).\nDo you wish to install?"));
