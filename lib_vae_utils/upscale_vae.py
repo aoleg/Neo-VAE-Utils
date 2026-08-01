@@ -286,7 +286,7 @@ def _build(path: os.PathLike) -> UpscaleDecodeVAE:
     factor = upscale_factor_of(config["conv_out_channels"])
 
     with no_init_weights():
-        with using_forge_operations(device=memory_management.cpu, dtype=memory_management.vae_dtype(), bnb_dtype="vae"):
+        with using_forge_operations(device=memory_management.cpu, dtype=memory_management.vae_dtype(), extra_dtype="vae"):
             model = WanVAE.from_config(config)
 
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
